@@ -32,7 +32,11 @@ struct Board {
 }
 
 impl Board {
-    fn put(&mut self, movement: PlayerMovement, position: Position) -> Result<(), Error> {
+    fn put(
+        &mut self,
+        movement: PlayerMovement,
+        position: Position,
+    ) -> Result<Option<PlayerMovement>, Error> {
         let column = position.0;
         let row = position.1;
 
@@ -40,7 +44,7 @@ impl Board {
             PlayerMovement::Empty => {
                 self.rows[row][column] = movement;
 
-                Ok(())
+                Ok(self.check_winner())
             }
             _ => Err(Error::Board("Position is not empty!".into())),
         }
@@ -51,6 +55,36 @@ impl Board {
             PlayerMovement::X => PlayerMovement::O,
             _ => PlayerMovement::X,
         }
+    }
+
+    fn check_winner(&self) -> Option<PlayerMovement> {
+        let possible_cases = [
+            [Position(0, 0), Position(0, 1), Position(0, 2)],
+            [Position(1, 0), Position(1, 1), Position(1, 2)],
+            [Position(2, 0), Position(2, 1), Position(2, 2)],
+            [Position(0, 0), Position(1, 0), Position(2, 0)],
+            [Position(0, 1), Position(1, 1), Position(2, 1)],
+            [Position(0, 2), Position(1, 2), Position(2, 2)],
+            [Position(0, 0), Position(1, 1), Position(2, 2)],
+            [Position(2, 0), Position(1, 1), Position(2, 0)],
+        ];
+
+        for i in possible_cases {
+            let movements: [PlayerMovement; 3] = i.map(|p| {
+                let column = p.0;
+                let row = p.1;
+
+                self.rows[row][column]
+            });
+
+            let first = movements[0];
+
+            if movements.iter().all(|x| *x == first) && first != PlayerMovement::Empty {
+                return Some(first);
+            }
+        }
+
+        None
     }
 }
 
@@ -127,9 +161,17 @@ fn main() {
             Ok(position) => position,
         };
 
-        if let Err(Error::Board(e)) = board.put(board.next, position) {
-            println!("{}", e);
-            continue;
+        match board.put(board.next, position) {
+            Err(Error::Board(e)) => {
+                println!("{}", e);
+                continue;
+            }
+            Ok(w) => {
+                if let Some(player) = w {
+                    println!("{} has won!", player);
+                    break;
+                }
+            }
         }
 
         board.swap_turns();
